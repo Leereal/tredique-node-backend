@@ -1,0 +1,17 @@
+export const symbols = [
+  { name: "Volatility 10 Index", code: "R_10" },
+  { name: "Volatility 25 Index", code: "R_25" },
+  { name: "Volatility 50 Index", code: "R_50" },
+  { name: "Volatility 75 Index", code: "R_75" },
+  { name: "Volatility 100 Index", code: "R_100" },
+  { name: "Volatility 10 (1s) Index", code: "1HZ10V" },
+  { name: "Volatility 25 (1s) Index", code: "1HZ25V" },
+  { name: "Volatility 50 (1s) Index", code: "1HZ50V" },
+  { name: "Volatility 75 (1s) Index", code: "1HZ75V" },
+  { name: "Volatility 100 (1s) Index", code: "1HZ100V" },
+  { name: "Jump 10 Index", code: "JD10" },
+  { name: "Jump 25 Index", code: "JD25" },
+  { name: "Jump 50 Index", code: "JD50" },
+  { name: "Jump 75 Index", code: "JD75" },
+  { name: "Jump 100 Index", code: "JD100" },
+];
