@@ -97,13 +97,6 @@ app.use(express.urlencoded({ extended: true })); // To parse form data in the re
 
 app.use("/api/v1/signals", signalRoutes);
 
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(_dirname, "/tredique/dist")));
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(_dirname, "tredique", "dist", "index.html"));
-  });
-}
-
 server.listen(PORT, "0.0.0.0", () => {
   connectDB();
   console.log(`Main Server is running on http://localhost:${PORT}`);
