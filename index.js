@@ -1,16 +1,18 @@
 import http from "http";
 import express from "express";
-import { startBot, startServer, stopBot } from "./server.js";
 import { Server } from "socket.io";
 import connectDB from "./database/index.js";
 import dotenv from "dotenv";
-import { signal } from "./classBasedTrade.js";
+import { signal, start, stop } from "./classBasedTrade.js";
+import path from "path";
+import signalRoutes from "./routes/signals.routes.js";
 dotenv.config();
 
 const io = new Server();
 const app = express();
 const server = http.createServer(app);
 const PORT = 5000;
+const _dirname = path.resolve();
 
 //Attach socket to server
 io.attach(server, {
@@ -56,9 +58,9 @@ io.on("connection", (socket) => {
   socket.on("handleBot", (data) => {
     // Send a response back to the client if needed
     if (data.activate) {
-      startBot(data);
+      start(data.id);
     } else {
-      stopBot(data);
+      stop(data.id);
     }
   });
 
@@ -73,6 +75,11 @@ io.on("connection", (socket) => {
     Socket.emit("deleteSignal", data);
   });
 
+  socket.on("updatedSignal", (data) => {
+    console.log("Updated Signal", data);
+    Socket.emit("updatedSignal", data);
+  });
+
   socket.on("disconnect", () => {
     console.log("Client disconnected");
     delete userSocketMap[userId];
@@ -80,13 +87,25 @@ io.on("connection", (socket) => {
   });
 });
 
-app.get("/", (req, res) => {
-  res.send("How are you please this is not for you :)");
+Socket.on("updatedSignal", (data) => {
+  Socket.emit("updatedSignal", data);
 });
 
+//Middlewares
+app.use(express.json({ limit: "50mb" })); // To parse JSON data in the req.body
+app.use(express.urlencoded({ extended: true })); // To parse form data in the req.body
+
+app.use("/api/v1/signals", signalRoutes);
+
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(_dirname, "/tredique/dist")));
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(_dirname, "tredique", "dist", "index.html"));
+  });
+}
+
 server.listen(PORT, "0.0.0.0", () => {
-  // connectDB();
-  // startServer(); //Start the server that receives signals from MT5
+  connectDB();
   console.log(`Main Server is running on http://localhost:${PORT}`);
 });
 

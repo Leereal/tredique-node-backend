@@ -60,7 +60,7 @@ export async function createSignal(data) {
 
 export async function findSignalCategoryByName(categoryName) {
   try {
-    const collection = mongoose.connection.db.collection("signalCategories");
+    const collection = mongoose.connection.db.collection("signalcategories");
 
     const signalCategory = await collection.findOne({ name: categoryName });
 

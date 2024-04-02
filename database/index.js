@@ -5,7 +5,7 @@ export default function connectDB() {
 
   try {
     mongoose.connect(url, {
-      dbName: "tredapp",
+      dbName: "tredique",
     });
   } catch (err) {
     console.error(err.message);

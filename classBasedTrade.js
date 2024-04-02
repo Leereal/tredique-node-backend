@@ -8,20 +8,20 @@ import {
 } from "./actions/connection.actions.js";
 import { updateAccount } from "./actions/account.actions.js";
 import { symbols } from "./utils/symbols.js";
-import { eventEmitter } from "./server.js";
+// import { eventEmitter } from "./server.js";
 import mongoose from "mongoose";
 import { updateRobot } from "./actions/robot.actions.js";
 import { createPendingOrder } from "./actions/pending_order.actions.js";
-import {
-  createSignal,
-  findSignalCategoryByName,
-} from "./actions/signal.action.js";
+import { EventEmitter } from "events";
+
 let accountWebSockets = [];
 let pending_orders = [];
+const eventEmitter = new EventEmitter();
+
 class AccountWebSocket {
   constructor(robotConnection, eventEmitter) {
     this.robotConnection = robotConnection;
-    this.robotConnection_id = robotConnection._id;
+    this.robotConnectionId = robotConnection._id;
     this.token = robotConnection.account.token;
     this.eventEmitter = eventEmitter;
 
@@ -42,7 +42,7 @@ class AccountWebSocket {
 
   subscribeToEvents() {
     this.eventEmitter.on("signal", (data) => {
-      this.ws.onmessage({ data });
+      this.handleSignal(data);
     });
   }
 
@@ -62,7 +62,7 @@ class AccountWebSocket {
 
       case "balance":
         this.handleBalanceUpdate(data.balance);
-        if (this.robotConnection.dynamic_stake) {
+        if (this.robotConnection.dynamicStake) {
           this.dynamicStake(data.balance.balance);
         }
         this.targetCheck(data.balance);
@@ -102,6 +102,7 @@ class AccountWebSocket {
   onClose(event) {
     console.log(`WebSocket connection closed for account ${this.token}`);
     // Handle onClose event if needed
+    start(robotConnection.robotId);
   }
 
   onError(event) {
@@ -122,10 +123,7 @@ class AccountWebSocket {
       active: true,
     });
 
-    Socket.emit("bot", {
-      action: "bot_started",
-      data: { ...this.robotConnection },
-    });
+    Socket.emit("botStarted", {});
   }
 
   handleBalanceUpdate(balance) {
@@ -152,39 +150,22 @@ class AccountWebSocket {
   }
 
   handleSignal(data) {
+    if (data.type === "BUY" || data.type === "SELL") {
+      data.type = data.type.toLowerCase();
+    } else {
+      return;
+    }
     const symbol = data.symbol;
-    const val = symbols.find((symb) => symb.name === symbol);
+    const val = symbols.find((symb) => {
+      return symb.name.toLowerCase().includes(symbol.toLowerCase());
+    });
+
     const symbol_code = val ? val.code : symbol;
     if (!this.openTrade) {
-      ("Open Trade Call here");
-      this.placeOrder(symbol_code, data.trade_option);
+      this.placeOrder(symbol_code, data.type);
     } else {
       this.handleOpenTrade(data);
     }
-    broadcastSignal(signal);
-  }
-
-  async broadcastSignal(signal) {
-    const signalCategory = await findSignalCategoryByName("deriv-binary");
-    if (!signalCategory) {
-      console.log("No signal category found");
-      return;
-    }
-
-    const newSignal = {
-      signalCategoryId: signalCategory._id,
-      symbol: signal.symbol,
-      entryRange: signal.price,
-      isPremium: false,
-      isActive: true,
-      profit: null,
-      type: signal.type,
-      expiration: signal.expiration || 5,
-      isBinary: true,
-    };
-
-    const savedSignal = await createSignal(newSignal);
-    Socket.emit("broadcastSignal", savedSignal);
   }
 
   async handlePendingOrder(data) {
@@ -198,7 +179,7 @@ class AccountWebSocket {
     delete data.msg_type;
     let dbData = {
       ...data,
-      connection: this.robotConnection_id,
+      connection: this.robotConnectionId,
       connector: this.robotConnection.connector._id,
       createdAt: new Date(),
       active: true,
@@ -212,7 +193,6 @@ class AccountWebSocket {
   }
 
   async watchPrice(data) {
-    console.log("watchPrice Data : ", data);
     if (data) {
       const asset = await symbols.find((pair) => pair.code === data.symbol)
         ?.name;
@@ -225,7 +205,6 @@ class AccountWebSocket {
         pending_order.prev_price !== undefined &&
         data.quote !== pending_order.prev_price
       ) {
-        console.log("pending_order Data : ", pending_order);
         console.log(
           `Current Price : ${data.quote} => Pending Order : ${pending_order?.price} => Prev Price : ${pending_order?.prev_price}`
         );
@@ -424,7 +403,7 @@ class AccountWebSocket {
     try {
       // Update the database connection document
       await updateConnection(this.robotConnection, {
-        active_contract_id: buyData.contract_id,
+        activeContractId: buyData.contract_id,
         open_trade: true,
         entry: buyData.longcode,
       });
@@ -461,7 +440,7 @@ class AccountWebSocket {
     if (proposalOpenContractData.profit < 0) {
       const robotConnection = await getConnectionById(this.robotConnection._id);
       await updateConnection(this.robotConnection, {
-        current_level: robotConnection.current_level + 1,
+        currentLevel: robotConnection.currentLevel + 1,
       });
       Socket.emit("bot", {
         action: "closed_trade",
@@ -469,7 +448,7 @@ class AccountWebSocket {
       });
     } else {
       await updateConnection(this.robotConnection, {
-        current_level: 1,
+        currentLevel: 1,
       });
       Socket.emit("bot", {
         action: "closed_trade",
@@ -481,7 +460,7 @@ class AccountWebSocket {
       last_profit: proposalOpenContractData.profit,
       open_trade: false,
       entry: "",
-      active_contract_id: "",
+      activeContractId: "",
     });
   }
 
@@ -494,27 +473,27 @@ class AccountWebSocket {
     this.openTrade = true; // Making sure that the open trade is updated
 
     console.log(
-      `Current Profit: ${currentProfit}% | Current Level: ${this.robotConnection.current_level} Martingale: ${this.robotConnection.martingale}`
+      `Current Profit: ${currentProfit}% | Current Level: ${this.robotConnection.currentLevel} Martingale: ${this.robotConnection.martingale}`
     );
 
     Socket.emit("bot", {
       action: "current_profit",
       data: {
-        _id: this.robotConnection_id,
+        _id: this.robotConnectionId,
         current_profit: currentProfit,
       },
     });
   }
 
   async handleOpenTrade() {
-    const { active_contract_id } = await getConnectionById(
+    const { activeContractId } = await getConnectionById(
       this.robotConnection._id
     ); // Get the running order id from the database
-    if (active_contract_id > 0) {
+    if (activeContractId > 0) {
       this.ws.send(
         JSON.stringify({
           proposal_open_contract: 1,
-          contract_id: active_contract_id,
+          contract_id: activeContractId,
           subscribe: 1,
         })
       );
@@ -528,7 +507,7 @@ class AccountWebSocket {
     let totalLastStakes = 0;
     let new_stake = 0;
 
-    for (let i = 1; i <= robotConnection.current_level; i++) {
+    for (let i = 1; i <= robotConnection.currentLevel; i++) {
       new_stake =
         (robotConnection.stake * i * robotConnection.payout + totalLastStakes) /
         robotConnection.payout;
@@ -547,7 +526,7 @@ class AccountWebSocket {
   }
 
   async dynamicStake(balance) {
-    if (this.robotConnection.current_level === 1) {
+    if (this.robotConnection.currentLevel === 1) {
       let stake;
 
       if (this.robotConnection.currency === "BTC") {
@@ -562,13 +541,13 @@ class AccountWebSocket {
   }
 
   async targetCheck(data) {
-    if (data.balance > this.robotConnection.target_percentage) {
+    if (data.balance > this.robotConnection.targetPercentage) {
       console.log(`ACCOUNT ${data.loginid} : DAILY TARGET REACHED`);
 
       try {
         // Update the database connection document
         await updateConnection(this.robotConnection, {
-          target_reached: true,
+          targetReached: true,
           active: false,
         });
         this.close();
@@ -593,6 +572,7 @@ class AccountWebSocket {
 }
 
 export const start = async (id) => {
+  console.log("Starting bot");
   const robotId = new mongoose.Types.ObjectId(id);
   const robotConnections = await getAllConnections(robotId);
 
@@ -600,7 +580,11 @@ export const start = async (id) => {
     return new AccountWebSocket(robotConnection, eventEmitter);
   });
 
-  console.log("Starting bot");
+  if (accountWebSockets && accountWebSockets.length > 0) {
+    Socket.emit("bot", { action: "bot_started", data: { message: "success" } });
+  } else {
+    Socket.emit("bot", { action: "bot_started", data: { message: "fail" } });
+  }
 
   // Return the created instances for later reference
   return accountWebSockets;
@@ -612,7 +596,7 @@ export const stop = async (id) => {
   const robotId = new mongoose.Types.ObjectId(id);
 
   // Update robot status in the database
-  await updateRobot(robotId, {
+  const updatedBot = await updateRobot(robotId, {
     active: false,
   });
 
@@ -621,7 +605,11 @@ export const stop = async (id) => {
     accountWebSocket.close();
   });
   console.log("Robot Server Stopped");
-  Socket.emit("bot", { action: "bot_started", data: { id: id } });
+  if (updatedBot) {
+    Socket.emit("bot", { action: "bot_stopped", data: { message: "success" } });
+  } else {
+    Socket.emit("bot", { action: "bot_stopped", data: { message: "fail" } });
+  }
 };
 
 export const signal = (data) => {
@@ -644,6 +632,14 @@ export const signal = (data) => {
 
   accountWebSockets.forEach((accountWebSocket) => {
     accountWebSocket.onMessage({ data: JSON.stringify(entry) });
+  });
+};
+
+export const receiveSignalFromMT5 = (data) => {
+  console.log("receiveSignalFromMT5 out: ", data);
+  accountWebSockets.forEach((accountWebSocket) => {
+    console.log("receiveSignalFromMT5: ", data);
+    accountWebSocket.handleSignal(data);
   });
 };
 
