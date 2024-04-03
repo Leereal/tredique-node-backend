@@ -13,9 +13,11 @@ import mongoose from "mongoose";
 import { updateRobot } from "./actions/robot.actions.js";
 import { createPendingOrder } from "./actions/pending_order.actions.js";
 import { EventEmitter } from "events";
+import { updateSignal } from "./actions/signal.action.js";
 
 let accountWebSockets = [];
 let pending_orders = [];
+let savedSignal = null;
 const eventEmitter = new EventEmitter();
 
 class AccountWebSocket {
@@ -455,6 +457,7 @@ class AccountWebSocket {
         data: { ...this.robotConnection.toObject(), profit: true },
       });
     }
+
     //Update connection
     await updateConnection(this.robotConnection, {
       last_profit: proposalOpenContractData.profit,
@@ -462,6 +465,14 @@ class AccountWebSocket {
       entry: "",
       activeContractId: "",
     });
+
+    //Update broadcasted signal
+    const updatedSignal = await updateSignal(savedSignal._id, {
+      profit: proposalOpenContractData.profit,
+      active: false,
+    });
+    Socket.emit("updatedSignal", updatedSignal);
+    savedSignal = null;
   }
 
   async handleOpenContract(proposalOpenContractData) {
@@ -636,9 +647,8 @@ export const signal = (data) => {
 };
 
 export const receiveSignalFromMT5 = (data) => {
-  console.log("receiveSignalFromMT5 out: ", data);
+  savedSignal = data.savedSignal || null;
   accountWebSockets.forEach((accountWebSocket) => {
-    console.log("receiveSignalFromMT5: ", data);
     accountWebSocket.handleSignal(data);
   });
 };

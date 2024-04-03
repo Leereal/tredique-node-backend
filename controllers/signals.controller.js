@@ -30,7 +30,6 @@ export async function createSignalController(req, res) {
 
     //Enter first before saving
     console.log("Signal Placed Successfully:" + new Date().toLocaleString());
-    receiveSignalFromMT5(signal);
 
     const newSignal = {
       signalCategory: signalCategory._id,
@@ -46,6 +45,8 @@ export async function createSignalController(req, res) {
     };
 
     const savedSignal = await createSignal(newSignal);
+    signal.savedSignal = savedSignal;
+    receiveSignalFromMT5(signal);
     Socket.emit("broadcastedSignal", savedSignal);
 
     res.status(200).send(savedSignal);
