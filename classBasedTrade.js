@@ -155,7 +155,6 @@ class AccountWebSocket {
   }
 
   handleSignal(data) {
-    console.log("Signal received: ", data);
     if (data.type === "BUY" || data.type === "SELL") {
       data.type = data.type.toLowerCase();
     } else {
@@ -167,6 +166,7 @@ class AccountWebSocket {
     });
 
     const symbol_code = val ? val.code : symbol;
+    console.log("Open Trade : ", this.openTrade);
     if (!this.openTrade) {
       console.log("Connection not open, placing order");
       this.placeOrder(symbol_code, data.type);
@@ -665,13 +665,17 @@ export const signal = (data) => {
   });
 };
 
-export const receiveSignalFromMT5 = (data) => {
+export const receiveSignalFromMT5 = async (data) => {
   savedSignal = data.savedSignal || null;
   console.log("Accounts WebSockets Total: ", accountWebSockets?.length);
-  accountWebSockets.forEach((accountWebSocket) => {
-    console.log("Account WebSocket: ", accountWebSocket);
-    accountWebSocket.handleSignal(data);
+
+  // Map each AccountWebSocket instance to a Promise that resolves when handleSignal completes
+  const handleSignalPromises = accountWebSockets.map((accountWebSocket) => {
+    return accountWebSocket.handleSignal(data);
   });
+
+  // Wait for all handleSignal promises to resolve
+  await Promise.all(handleSignalPromises);
 };
 
 // Add other utility functions or constants as needed
