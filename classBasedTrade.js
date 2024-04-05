@@ -167,6 +167,7 @@ class AccountWebSocket {
 
     const symbol_code = val ? val.code : symbol;
     if (!this.openTrade) {
+      console.log("Connection not open, placing order");
       this.placeOrder(symbol_code, data.type);
     } else {
       this.handleOpenTrade(data);
