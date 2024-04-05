@@ -155,6 +155,7 @@ class AccountWebSocket {
   }
 
   handleSignal(data) {
+    console.log("Signal received: ", data);
     if (data.type === "BUY" || data.type === "SELL") {
       data.type = data.type.toLowerCase();
     } else {
@@ -668,6 +669,7 @@ export const receiveSignalFromMT5 = (data) => {
   savedSignal = data.savedSignal || null;
   console.log("Accounts WebSockets Total: ", accountWebSockets?.length);
   accountWebSockets.forEach((accountWebSocket) => {
+    console.log("Account WebSocket: ", accountWebSocket);
     accountWebSocket.handleSignal(data);
   });
 };
