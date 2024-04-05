@@ -18,6 +18,7 @@ import { updateSignal } from "./actions/signal.action.js";
 let accountWebSockets = [];
 let pending_orders = [];
 let savedSignal = null;
+let currentRobotId = null;
 const eventEmitter = new EventEmitter();
 
 class AccountWebSocket {
@@ -104,7 +105,7 @@ class AccountWebSocket {
   onClose(event) {
     console.log(`WebSocket connection closed for account ${this.token}`);
     // Handle onClose event if needed
-    start(robotConnection.robotId);
+    start(currentRobotId);
   }
 
   onError(event) {
@@ -586,6 +587,7 @@ export const start = async (id) => {
   console.log("Starting bot");
   const robotId = new mongoose.Types.ObjectId(id);
   const robotConnections = await getAllConnections(robotId);
+  currentRobotId = id;
 
   accountWebSockets = robotConnections.map((robotConnection) => {
     return new AccountWebSocket(robotConnection, eventEmitter);
