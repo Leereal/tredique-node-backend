@@ -667,15 +667,15 @@ export const signal = (data) => {
 
 export const receiveSignalFromMT5 = async (data) => {
   savedSignal = data.savedSignal || null;
-  console.log("Accounts WebSockets Total: ", accountWebSockets?.length);
+  console.log("Accounts WebSockets Total:", accountWebSockets?.length);
 
-  // Map each AccountWebSocket instance to a Promise that resolves when handleSignal completes
-  const handleSignalPromises = accountWebSockets.map((accountWebSocket) => {
-    return accountWebSocket.handleSignal(data);
-  });
-
-  // Wait for all handleSignal promises to resolve
-  await Promise.all(handleSignalPromises);
+  // Call handleSignal for each AccountWebSocket and log directly
+  for (const accountWebSocket of accountWebSockets) {
+    await accountWebSocket.handleSignal(data);
+    console.log(
+      "Sent signal to account:",
+      accountWebSocket.robotConnection.token
+    );
+  }
 };
-
 // Add other utility functions or constants as needed
