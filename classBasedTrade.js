@@ -591,42 +591,29 @@ export const start = async (id) => {
   const robotConnections = await getAllConnections(robotId);
   currentRobotId = id;
 
-  const accountWebSocketPromises = robotConnections.map((robotConnection) => {
-    return new Promise((resolve, reject) => {
-      const accountWebSocket = new AccountWebSocket(
-        robotConnection,
-        eventEmitter
-      );
-      // Wait for the WebSocket connection to open before resolving the promise
-      accountWebSocket.ws.onopen = () => {
-        resolve(accountWebSocket);
-      };
-      // Reject the promise if there's an error opening the WebSocket connection
-      accountWebSocket.ws.onerror = (error) => {
-        reject(error);
-      };
-    });
-  });
+  // Initialize an array to store new instances
+  const newAccountWebSockets = [];
 
-  try {
-    // Wait for all promises to resolve
-    accountWebSockets = await Promise.all(accountWebSocketPromises);
-    if (accountWebSockets && accountWebSockets.length > 0) {
-      Socket.emit("bot", {
-        action: "bot_started",
-        data: { message: "success" },
-      });
-    } else {
-      Socket.emit("bot", { action: "bot_started", data: { message: "fail" } });
-    }
-    // Return the created instances for later reference
-    return accountWebSockets;
-  } catch (error) {
-    console.error("Error starting bot:", error);
-    // Handle the error if needed
-    Socket.emit("bot", { action: "bot_started", data: { message: "fail" } });
-    return null;
+  // Iterate over robotConnections and create new instances
+  for (const robotConnection of robotConnections) {
+    const accountWebSocket = new AccountWebSocket(
+      robotConnection,
+      eventEmitter
+    );
+    newAccountWebSockets.push(accountWebSocket);
   }
+
+  // Add the new instances to the existing accountWebSockets array
+  accountWebSockets.push(...newAccountWebSockets);
+
+  if (newAccountWebSockets.length > 0) {
+    Socket.emit("bot", { action: "bot_started", data: { message: "success" } });
+  } else {
+    Socket.emit("bot", { action: "bot_started", data: { message: "fail" } });
+  }
+
+  // Return the created instances for later reference
+  return newAccountWebSockets;
 };
 
 export const stop = async (id) => {
@@ -678,6 +665,7 @@ export const signal = (data) => {
 
 export const receiveSignalFromMT5 = (data) => {
   savedSignal = data.savedSignal || null;
+  console.log("Accounts WebSockets Total: ", accountWebSockets?.length);
   accountWebSockets.forEach((accountWebSocket) => {
     accountWebSocket.handleSignal(data);
   });
