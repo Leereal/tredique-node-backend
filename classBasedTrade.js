@@ -591,18 +591,42 @@ export const start = async (id) => {
   const robotConnections = await getAllConnections(robotId);
   currentRobotId = id;
 
-  accountWebSockets = robotConnections.map((robotConnection) => {
-    return new AccountWebSocket(robotConnection, eventEmitter);
+  const accountWebSocketPromises = robotConnections.map((robotConnection) => {
+    return new Promise((resolve, reject) => {
+      const accountWebSocket = new AccountWebSocket(
+        robotConnection,
+        eventEmitter
+      );
+      // Wait for the WebSocket connection to open before resolving the promise
+      accountWebSocket.ws.onopen = () => {
+        resolve(accountWebSocket);
+      };
+      // Reject the promise if there's an error opening the WebSocket connection
+      accountWebSocket.ws.onerror = (error) => {
+        reject(error);
+      };
+    });
   });
 
-  if (accountWebSockets && accountWebSockets.length > 0) {
-    Socket.emit("bot", { action: "bot_started", data: { message: "success" } });
-  } else {
+  try {
+    // Wait for all promises to resolve
+    accountWebSockets = await Promise.all(accountWebSocketPromises);
+    if (accountWebSockets && accountWebSockets.length > 0) {
+      Socket.emit("bot", {
+        action: "bot_started",
+        data: { message: "success" },
+      });
+    } else {
+      Socket.emit("bot", { action: "bot_started", data: { message: "fail" } });
+    }
+    // Return the created instances for later reference
+    return accountWebSockets;
+  } catch (error) {
+    console.error("Error starting bot:", error);
+    // Handle the error if needed
     Socket.emit("bot", { action: "bot_started", data: { message: "fail" } });
+    return null;
   }
-
-  // Return the created instances for later reference
-  return accountWebSockets;
 };
 
 export const stop = async (id) => {
