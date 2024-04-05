@@ -105,7 +105,9 @@ class AccountWebSocket {
   onClose(event) {
     console.log(`WebSocket connection closed for account ${this.token}`);
     // Handle onClose event if needed
-    start(currentRobotId);
+    if (currentRobotId) {
+      start(currentRobotId);
+    }
   }
 
   onError(event) {
@@ -607,6 +609,8 @@ export const stop = async (id) => {
   // Close WebSocket connections for all accounts
   // Iterate over accountWebSocket instances and call close()
   const robotId = new mongoose.Types.ObjectId(id);
+
+  currentRobotId = null;
 
   // Update robot status in the database
   const updatedBot = await updateRobot(robotId, {
