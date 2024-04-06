@@ -170,7 +170,7 @@ class AccountWebSocket {
 
     const symbol_code = val ? val.code : symbol;
     if (!this.openTrade) {
-      this.placeOrder(symbol_code, data.type);
+      this.placeOrder(symbol_code, receivedSignal.type);
     } else {
       this.handleOpenTrade(receivedSignal);
     }
