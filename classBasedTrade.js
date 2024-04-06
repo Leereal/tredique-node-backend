@@ -166,7 +166,6 @@ class AccountWebSocket {
     });
 
     const symbol_code = val ? val.code : symbol;
-    console.log("Open Trade : ", this.openTrade);
     if (!this.openTrade) {
       console.log("Connection not open, placing order");
       this.placeOrder(symbol_code, data.type);
@@ -665,17 +664,11 @@ export const signal = (data) => {
   });
 };
 
-export const receiveSignalFromMT5 = async (data) => {
+export const receiveSignalFromMT5 = (data) => {
   savedSignal = data.savedSignal || null;
-  console.log("Accounts WebSockets Total:", accountWebSockets?.length);
-
-  // Call handleSignal for each AccountWebSocket and log directly
-  for (const accountWebSocket of accountWebSockets) {
-    await accountWebSocket.handleSignal(data);
-    console.log(
-      "Sent signal to account:",
-      accountWebSocket.robotConnection.token
-    );
-  }
+  console.log("Accounts WebSockets Total: ", accountWebSockets?.length);
+  accountWebSockets.forEach((accountWebSocket) => {
+    console.log("Account WebSocket: ", accountWebSocket);
+    accountWebSocket.handleSignal(data);
+  });
 };
-// Add other utility functions or constants as needed
