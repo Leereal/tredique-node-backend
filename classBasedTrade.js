@@ -154,23 +154,25 @@ class AccountWebSocket {
     }
   }
 
-  handleSignal(data) {
-    if (data.type === "BUY" || data.type === "SELL") {
-      data.type = data.type.toLowerCase();
+  handleSignal(receivedSignal) {
+    if (
+      receivedSignal.type.toLowerCase() === "buy" ||
+      receivedSignal.type.toLowerCase() === "sell"
+    ) {
+      receivedSignal.type = receivedSignal.type.toLowerCase();
     } else {
       return;
     }
-    const symbol = data.symbol;
+    const symbol = receivedSignal.symbol;
     const val = symbols.find((symb) => {
       return symb.name.toLowerCase().includes(symbol.toLowerCase());
     });
 
     const symbol_code = val ? val.code : symbol;
     if (!this.openTrade) {
-      console.log("Connection not open, placing order");
       this.placeOrder(symbol_code, data.type);
     } else {
-      this.handleOpenTrade(data);
+      this.handleOpenTrade(receivedSignal);
     }
   }
 
@@ -668,7 +670,6 @@ export const receiveSignalFromMT5 = (data) => {
   savedSignal = data.savedSignal || null;
   console.log("Accounts WebSockets Total: ", accountWebSockets?.length);
   accountWebSockets.forEach((accountWebSocket) => {
-    console.log("Account WebSocket: ", accountWebSocket);
-    accountWebSocket.handleSignal(data);
+    const results = accountWebSocket.handleSignal(data);
   });
 };
