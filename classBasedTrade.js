@@ -367,7 +367,7 @@ class AccountWebSocket {
     this.ws.send(
       JSON.stringify({
         proposal: 1,
-        amount: local_stake,
+        amount: local_stake >= 0.35 ? local_stake : 0.35,
         basis: "stake",
         contract_type: trade_option === "buy" ? "CALL" : "PUT",
         currency: robotConnection.currency,
@@ -445,40 +445,48 @@ class AccountWebSocket {
   async handleSoldContract(proposalOpenContractData) {
     // If `isSold` is true it means our contract has finished, and we can see if we won or not.
     this.openTrade = false;
-    if (proposalOpenContractData.profit < 0) {
-      const robotConnection = await getConnectionById(this.robotConnection._id);
+    try {
+      if (proposalOpenContractData.profit < 0) {
+        const robotConnection = await getConnectionById(
+          this.robotConnection._id
+        );
+        await updateConnection(this.robotConnection, {
+          currentLevel: robotConnection.currentLevel + 1,
+        });
+        Socket.emit("bot", {
+          action: "closed_trade",
+          data: { ...this.robotConnection.toObject(), profit: false },
+        });
+      } else {
+        await updateConnection(this.robotConnection, {
+          currentLevel: 1,
+        });
+        Socket.emit("bot", {
+          action: "closed_trade",
+          data: { ...this.robotConnection.toObject(), profit: true },
+        });
+      }
+
+      //Update connection
       await updateConnection(this.robotConnection, {
-        currentLevel: robotConnection.currentLevel + 1,
+        last_profit: proposalOpenContractData.profit,
+        open_trade: false,
+        entry: "",
+        activeContractId: "",
       });
-      Socket.emit("bot", {
-        action: "closed_trade",
-        data: { ...this.robotConnection.toObject(), profit: false },
-      });
-    } else {
-      await updateConnection(this.robotConnection, {
-        currentLevel: 1,
-      });
-      Socket.emit("bot", {
-        action: "closed_trade",
-        data: { ...this.robotConnection.toObject(), profit: true },
-      });
+
+      //Update broadcasted signal
+      if (savedSignal) {
+        const updatedSignal = await updateSignal(savedSignal._id, {
+          profit: proposalOpenContractData.profit,
+          active: false,
+        });
+        Socket.emit("updatedSignal", updatedSignal);
+        savedSignal = null;
+      }
+    } catch (error) {
+      console.log("handleSoldContract error: ", error);
     }
-
-    //Update connection
-    await updateConnection(this.robotConnection, {
-      last_profit: proposalOpenContractData.profit,
-      open_trade: false,
-      entry: "",
-      activeContractId: "",
-    });
-
-    //Update broadcasted signal
-    const updatedSignal = await updateSignal(savedSignal._id, {
-      profit: proposalOpenContractData.profit,
-      active: false,
-    });
-    Socket.emit("updatedSignal", updatedSignal);
-    savedSignal = null;
   }
 
   async handleOpenContract(proposalOpenContractData) {
